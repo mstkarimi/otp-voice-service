@@ -1,0 +1,23 @@
+[Unit]
+Description=OTP Voice Call Service
+After=network.target
+
+[Service]
+Type=simple
+User=otp-service
+Group=otp-service
+WorkingDirectory=/opt/otp-service
+Environment=OTP_CONFIG=/etc/otp-service/config.yaml
+Environment=PYTHONPATH=/opt/otp-service
+ExecStart=/opt/otp-service/venv/bin/python -m uvicorn src.main:app --host 0.0.0.0 --port 8080 --log-level info --no-access-log
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=otp-service
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

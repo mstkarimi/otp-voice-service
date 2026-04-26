@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Vendor packages (download separately - see download_deps.sh)
+vendor/
+
+# Secrets & local config
+config/config.yaml
+.env
+*.secret
+
+# Database
+*.db
+*.db-journal
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Windows ffmpeg binaries (dev tool, not part of project)
+tools/ffmpeg.exe
+tools/ffmpeg-master-latest-win64-gpl/
+
+# Byte-compiled
+*.pyc
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/

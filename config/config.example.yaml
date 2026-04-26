@@ -1,0 +1,48 @@
+api:
+  host: "0.0.0.0"
+  port: 8080
+  # کلید API - در install.sh به صورت تصادفی تولید می‌شه
+  api_key_hash: "REPLACE_WITH_BCRYPT_HASH"
+  # لیست IP های مجاز (خالی = همه مجازند)
+  ip_whitelist:
+    - "127.0.0.1"
+    - "192.168.1.0/24"   # <-- محدوده IP برنامه‌نویس رو اینجا بذارید
+
+asterisk:
+  host: "127.0.0.1"
+  port: 5038
+  username: "otp_service"
+  # رمز AMI - در install.sh تولید می‌شه
+  secret: "REPLACE_WITH_AMI_SECRET"
+  # نام SIP Trunk
+  trunk: "90004455"
+  # شماره نمایش داده‌شده به کاربر
+  caller_id: "CALLCENTER"
+  # حداکثر ثانیه انتظار برای پاسخ
+  call_timeout: 30
+  # حداکثر زمان reconnect به AMI (ثانیه)
+  reconnect_delay: 5
+
+rate_limit:
+  # حداکثر تماس به یک شماره در بازه زمانی
+  per_number_calls: 3
+  per_number_window_minutes: 10
+  # حداکثر تماس همزمان کل سیستم
+  max_concurrent_calls: 20
+  # حداکثر تماس در ساعت
+  hourly_limit: 500
+
+sounds:
+  # مسیر فایل‌های صوتی روی سرور
+  base_path: "/var/lib/asterisk/sounds/otp"
+  # اگر true باشه از SayDigits سیستم استفاده می‌شه، اگر false از فایل‌های پروژه
+  use_system_digits: false
+
+logging:
+  level: "INFO"
+  dir: "/var/log/otp-service"
+  max_bytes: 10485760   # 10MB
+  backup_count: 5
+
+database:
+  path: "/var/lib/otp-service/otp.db"
