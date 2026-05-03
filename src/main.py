@@ -10,6 +10,7 @@ from src.core.logger import init_logger, get_logger
 from src.core.rate_limiter import init_rate_limiter
 from src.ami.client import init_ami_client, get_ami_client
 from src.ami.originator import init_originator
+from src.ami.event_handler import init_event_handler
 from src.storage import db
 from src.api.routes import router
 
@@ -59,6 +60,9 @@ def create_app(config_path=None):
             reconnect_delay=cfg.asterisk.reconnect_delay,
         )
         await ami.connect()
+
+        # init AMI event handler (drives call status from Asterisk events)
+        init_event_handler(ami)
 
         # init originator
         init_originator(

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 from src.ami.client import get_ami_client
 from src.core.validator import sanitize_ami_value
 from src.core.logger import get_logger, mask_mobile, mask_code
@@ -27,14 +27,21 @@ class CallOriginator:
 
     async def originate(
         self,
+        request_id: str,
         mobile: str,
         code: str,
         repeat: int = 2,
         timeout: int = 30,
     ) -> Tuple[bool, Optional[str]]:
         """
-        شروع تماس صوتی OTP.
-        Returns: (success, error_message)
+        Send the Originate action.
+
+        With Async=true, panoramisk's send_action returns a LIST containing:
+          [ack, OriginateResponse]
+        We forward the OriginateResponse to the EventHandler so it gets
+        processed exactly like a real event.
+
+        Returns (action_accepted, error_message)
         """
         mobile = sanitize_ami_value(mobile)
         code = sanitize_ami_value(code)
@@ -42,7 +49,7 @@ class CallOriginator:
 
         logger.info(
             f"Originating call to {mask_mobile(mobile)} "
-            f"code={mask_code(code)} repeat={repeat}"
+            f"code={mask_code(code)} repeat={repeat} req={request_id}"
         )
 
         ami = get_ami_client()
@@ -52,6 +59,7 @@ class CallOriginator:
         context = self._build_context()
         action = {
             "Action": "Originate",
+            "ActionID": f"otp-{request_id}",
             "Channel": f"SIP/{self._trunk}/{mobile}",
             "Context": context,
             "Exten": "s",
@@ -59,23 +67,21 @@ class CallOriginator:
             "CallerID": self._caller_id,
             "Timeout": str(timeout * 1000),
             "Async": "true",
-            "Variable": f"OTP_CODE={code},OTP_REPEAT={repeat}",
+            "Variable": (
+                f"OTP_CODE={code},OTP_REPEAT={repeat},"
+                f"OTP_REQUEST_ID={request_id}"
+            ),
         }
 
         try:
             result = await asyncio.wait_for(
                 ami.send_action(action),
-                timeout=timeout + 5,
+                # OriginateResponse may take up to (timeout + dialplan-runtime).
+                # Allow a generous buffer.
+                timeout=timeout + 90,
             )
-            if result and result.get("Response") == "Success":
-                logger.info(f"Call originated successfully to {mask_mobile(mobile)}")
-                return True, None
-            else:
-                reason = result.get("Message", "خطای ناشناخته AMI") if result else "پاسخی از AMI دریافت نشد"
-                logger.warning(f"Originate failed for {mask_mobile(mobile)}: {reason}")
-                return False, reason
         except asyncio.TimeoutError:
-            logger.error(f"Originate timeout for {mask_mobile(mobile)}")
+            logger.warning(f"Originate ack timeout for {mask_mobile(mobile)} req={request_id}")
             return False, "زمان انتظار برای پاسخ AMI تمام شد"
         except ConnectionError as e:
             logger.error(f"AMI connection error: {e}")
@@ -83,6 +89,40 @@ class CallOriginator:
         except Exception as e:
             logger.error(f"Unexpected error during originate: {e}")
             return False, "خطای داخلی سرور"
+
+        # Normalize to list
+        messages = result if isinstance(result, list) else [result] if result else []
+        if not messages:
+            return False, "پاسخی از AMI دریافت نشد"
+
+        ack = messages[0]
+        if not _msg_get(ack, "Response") == "Success":
+            reason = _msg_get(ack, "Message") or "AMI ناموفق"
+            logger.warning(f"Originate rejected for {mask_mobile(mobile)}: {reason}")
+            return False, reason
+
+        # Forward later messages (e.g. OriginateResponse) to EventHandler
+        for msg in messages[1:]:
+            event_name = _msg_get(msg, "Event")
+            if event_name == "OriginateResponse":
+                try:
+                    from src.ami.event_handler import get_event_handler
+                    h = get_event_handler()
+                    if h is not None:
+                        await h._on_originate_response(None, msg)
+                except Exception as e:
+                    logger.error(f"Failed forwarding OriginateResponse: {e}")
+
+        return True, None
+
+
+def _msg_get(msg: Any, key: str, default: Optional[str] = None) -> Optional[str]:
+    """Safely read a value from a panoramisk Message or dict."""
+    if msg is None:
+        return default
+    if hasattr(msg, "get"):
+        return msg.get(key, default)
+    return getattr(msg, key, default)
 
 
 _originator: Optional[CallOriginator] = None

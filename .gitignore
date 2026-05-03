@@ -48,3 +48,8 @@ tools/ffmpeg-master-latest-win64-gpl/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Stray media files (we only want sounds/ directory)
+/*.mp3
+/*.wav
+/*.ogg

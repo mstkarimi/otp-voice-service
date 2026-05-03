@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional, List, Any
 from pydantic import BaseModel, validator, Field
 
 
@@ -40,11 +40,35 @@ class OTPCallResponse(BaseModel):
     estimated_time: int = Field(description="زمان تخمینی پاسخ (ثانیه)")
 
 
+class TimelineEvent(BaseModel):
+    at: float = Field(description="Unix timestamp (seconds)")
+    event: str
+    detail: Optional[str] = None
+
+
 class CallStatusResponse(BaseModel):
     request_id: str
     status: str
+    mobile: Optional[str] = None
     duration: Optional[int] = None
     hangup_cause: Optional[str] = None
+    asterisk_reason: Optional[str] = None
+
+    is_terminal: bool = Field(description="True if status will not change further")
+    is_answered: bool = Field(description="True if the user picked up at any point")
+    can_retry: bool = Field(description="True if a retry call makes sense (no_answer/busy/failed/...)")
+    retry_count: int = 0
+    parent_request_id: Optional[str] = None
+
+    created_at: Optional[float] = None
+    updated_at: Optional[float] = None
+
+    timeline: List[TimelineEvent] = Field(default_factory=list)
+
+
+class RetryRequest(BaseModel):
+    code: Optional[str] = Field(None, description="کد جدید (اختیاری) — اگر ندید، همان کد قبلی استفاده می‌شود")
+    repeat: Optional[int] = Field(None, ge=1, le=3)
 
 
 class HealthResponse(BaseModel):
